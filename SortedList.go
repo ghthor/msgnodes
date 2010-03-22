@@ -15,7 +15,7 @@ type WorkerPool struct {
 }
 
 func (wp *WorkerPool) init() {
-	workers = make([]Worker, size)
+	wp.workers = make([]Worker, wp.size)
 }
 
 type IntNode struct {
@@ -33,10 +33,11 @@ type IntNode struct {
 	setPrev chan *IntNode
 }
 
-func (i *IntNode) init() {
-	stop = make(chan int)
-	setNext = make(chan *IntNode)
-	setPrev = make(chan *IntNode)
+func (i *IntNode) init(parent *IntList) {
+	i.parent = parent
+	i.stop = make(chan int)
+	i.setNext = make(chan *IntNode)
+	i.setPrev = make(chan *IntNode)
 }
 
 func (i *IntNode) Start() {
@@ -54,11 +55,6 @@ func (i *IntNode) Start() {
 			}
 		}
 	}()
-}
-
-
-func (i *IntNode) init(parent *IntList) bool {
-	i.parent:
 }
 
 type IntList interface {
