@@ -2,6 +2,7 @@ package SortedList
 
 import (
 	"sync"
+	"container/vector"
 )
 
 type Worker interface {
@@ -11,11 +12,24 @@ type Worker interface {
 
 type WorkerPool struct {
 	size int
-	workers []Worker
+	//workers []Worker
+	workers container.Vector
 }
 
 func (wp *WorkerPool) init() {
-	wp.workers = make([]Worker, wp.size)
+	//wp.workers = make([]Worker, wp.size)
+	size = 100
+	wp.workers = new(container.Vector)
+}
+
+func (wp *WorkerPool) PushWorker(worker *Worker) {
+	wp.workers
+}
+
+func (wp *WorkerPool) Start() {
+}
+
+func (wp *WorkerPool) Stop() {
 }
 
 type IntNode struct {
@@ -47,10 +61,10 @@ func (i *IntNode) Start() {
 				case <- i.stop:
 					return
 				case next := <-i.setNext:
-					next.prev = i
+					//next.prev = i
 					i.next = next
 				case prev :=  <-i.setPrev:
-					prev.next = i
+					//prev.next = i
 					i.prev = prev
 			}
 		}
