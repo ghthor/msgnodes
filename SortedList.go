@@ -51,6 +51,8 @@ type Node struct {
 	getStatus chan string
 
 	stop chan bool
+	getNext chan *Node
+	getPrev chan *Node
 	setNext chan *Node
 	setPrev chan *Node
 }
@@ -63,10 +65,12 @@ func NewNode(val interface {}, parent *SortedList) (newNode *Node) {
 
 func (i *Node) init(parent *SortedList) {
 	i.parent = parent
-	i.stop = make(chan bool)
-	i.getVal = make(chan int)
-	i.setVal = make(chan int)
-	i.getStatus = make(chan int)
+	i.stop = make(chan int)
+	i.getVal = make(chan interface {})
+	i.setVal = make(chan interface {})
+	i.getStatus = make(chan string)
+	i.getNext = make(chan *Node)
+	i.getPrev = make(chan *Node)
 	i.setNext = make(chan *Node)
 	i.setPrev = make(chan *Node)
 }
@@ -83,12 +87,12 @@ func (i *Node) Start() {
 					return
 				case next := <-i.setNext:
 					i.status = "working"
-					//next.prev = i
 					i.next = next
 				case prev :=  <-i.setPrev:
 					i.status = "working"
-					//prev.next = i
 					i.prev = prev
+				case i.getNext <- i.next:
+				case i.getPrev <- i.prev:
 			}
 		}
 	}()
