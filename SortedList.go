@@ -201,12 +201,14 @@ type ListSizeSvr struct {
 	Server
 	size uint32
 	get chan (chan uint32)
+	getAndOffset chan (chan uint32)
 	offsetBy chan int
 }
 
 func (ss *ListSizeSvr) init() {
 	ss.Server.init()
 	ss.get = make(chan (chan uint32))
+	ss.getAndOffset = make(chan (chan uint32))
 	ss.offsetBy = make(chan int, 200)
 }
 
@@ -237,6 +239,17 @@ func (ss *ListSizeSvr) Start() {
 						offset, ok = <-ss.offsetBy
 					}
 					get <- ss.size
+				// This Implies a atomic read and then write
+				case ss.getAndOffset <- get:
+					//Empty the ss.offsetBy buffer
+					offset, ok := <-ss.offsetBy
+					for ok {
+						ss.changeByOffset(offset)
+						offset, ok = <-ss.offsetBy
+					}
+					get <- ss.size
+					offset = <-ss.offsetBy
+					ss.changeByOffset(offset)
 			}
 		}()
 	}
@@ -248,6 +261,8 @@ type SortedIntList struct {
 	begin *IntNode
 	end *IntNode
 	middle *IntNode
+
+	//goInsert (*SortedIntList) func(int)
 
 	Insert chan int
 	//Contains chan interface {}
@@ -270,6 +285,7 @@ func (sl *SortedIntList) init() {
 	sl.size.Start()
 
 	sl.Insert = make(chan int)
+	//sl.goInsert = &sl.goInsertInitial
 
 	sl.begin = newIntNode(0, sl)
 	sl.pushWorker(sl.begin)
@@ -322,10 +338,23 @@ func (sl *SortedIntList) insertHelper(prev *IntNode, insertee *IntNode,  next *I
 	}()
 }
 
+func (sl *SortedIntList) goInsertNorm(val int) {
+}
+
+//func (sl *SortedIntList) goInsertInitial(val int) {
 func (sl *SortedIntList) goInsert(val int) {
-	sizeLock := <-sl.size.get
+	// We Need and Atomic Read and Write here
+	// Since multiple thread could attempt to insert the "first" element to the list
+	// since we atomicly lock this for a getAndOffset all thread will lock until the size equal 1
+	sizeLock := <-sl.size.getAndOffset
 	curSize := <-sizeLock
-	if curSize != 0 {
+	if curSize > 0 {
+		// We have to release the lock, so that other threads can enter this section
+		// Honestly I should do this with a state and change the value of this function
+		sl.size.offsetBy <- 0
+		//all calls to goInsert after this will be to goInsertNorm
+		//sl.goInsert = sl.goInsertNorm
+		sl.goInsertNorm(val)
 	} else {
 		sl.size.offsetBy <- 1
 		insertee := newIntNode(val, sl)
