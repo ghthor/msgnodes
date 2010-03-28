@@ -1,3 +1,4 @@
 #!/bin/bash
 make clean
-rm ~/go/pkg/linux_amd64/ghthor/SortedList.a
+rm $GOROOT/pkg/linux_amd64/ghthor/SortedList.a
+make -C ./Main clean
