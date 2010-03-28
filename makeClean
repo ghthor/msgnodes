@@ -1,4 +1,10 @@
 #!/bin/bash
-make clean
-rm $GOROOT/pkg/linux_amd64/ghthor/SortedList.a
+
+#  This pkg Needs to Be Updated to use the New Server pkg
+#make -C ./SortedList clean
+#rm $GOROOT/pkg/linux_amd64/ghthor/SortedList.a
+
+#make -C ./Server clean
+#rm $GOROOT/pkg/linux_amd64/ghthor/Server.a
+
 make -C ./Main clean
