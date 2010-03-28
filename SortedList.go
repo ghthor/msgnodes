@@ -1,12 +1,13 @@
 package SortedList
 
 import (
-	"sync"
+	//"sync"
 	"container/vector"
 )
 
 type Worker interface {
 	Start()
+	//Pause()
 	Stop()
 }
 
@@ -21,12 +22,15 @@ func (wp *WorkerPool) init() {
 	wp.size = 100
 }
 
-func (wp *WorkerPool) PushWorker(worker Worker) {
+func (wp *WorkerPool) pushWorker(worker Worker) {
 	wp.workers.Push(worker)
-	worker.Start()
+	//worker.Start()
 }
 
 func (wp *WorkerPool) Start() {
+	for _, worker := range wp.workers {
+		worker.(Worker).Start()
+	}
 }
 
 func (wp *WorkerPool) Stop() {
@@ -35,198 +39,297 @@ func (wp *WorkerPool) Stop() {
 	}
 }
 
-type IntNode struct {
-	val int
-	setVal chan int
-	getVal chan int
-	parent *SortedIntList
-	next *IntNode
-	prev *IntNode
-	begin *IntNode
-	end *IntNode
-	index uint32
-	lock sync.Mutex
-
-	status string
-	getStatus chan string
-
+type Server struct {
+	running bool
+	//start chan int
+	//pause chan int
 	stop chan int
-	valServerStop chan int
-	getNext chan *IntNode
-	getPrev chan *IntNode
-	setNext chan *IntNode
-	setPrev chan *IntNode
+}
+
+func (s *Server) init() {
+	s.running = false
+	//s.start = make(chan int)
+	//s.pause = make(chan int)
+	s.stop = make(chan int)
+}
+
+func (s *Server) Start() {
+	//if !s.running {
+		//go func() {
+			//s.start <- 0
+		//}()
+	//}
+}
+
+func (s *Server) Stop() {
+	if s.running {
+		go func() {
+			s.stop <- 0
+		}()
+	}
+}
+
+type IntNodePtrServer struct {
+	Server
+	get chan (chan *IntNode)
+	set chan *IntNode
+	ptr *IntNode
+}
+
+func (ps *IntNodePtrServer) init() {
+	ps.Server.init()
+	ps.get = make(chan (chan *IntNode))
+	// By making this channel a buffer we can clear
+	// the buffer everytime there is a req to get
+	ps.set = make(chan *IntNode, 10)
+}
+
+func (ps *IntNodePtrServer) Start() {
+	if !ps.running {
+		ps.running = true
+		go func() {
+			get := make(chan *IntNode)
+			for {
+				select {
+					case <-ps.stop:
+						ps.running = false
+						return
+					case ptr := <-ps.set:
+						ps.ptr = ptr
+					case ps.get <- get:
+						// Clear the Buffer to set
+						ptr, ok := <-ps.set
+						for ok {
+							ps.ptr = ptr
+							ptr, ok = <-ps.set
+						}
+						get <- ps.ptr
+				}
+			}
+		}()
+	}
+}
+
+type IntNodeIndexSvr struct {
+	Server
+	val int64
+	get chan (chan int64)
+	offsetBy chan int64
+}
+
+func (is *IntNodeIndexSvr) init() {
+	is.Server.init()
+	is.get = make(chan (chan int64))
+	is.offsetBy = make(chan int64, 200)
+}
+
+func (is *IntNodeIndexSvr) Start() {
+	if !is.running {
+		is.running = true
+		go func() {
+			get := make(chan int64)
+			for {
+				select {
+					case <-is.stop:
+						is.running = false
+						return
+					case offset := <-is.offsetBy:
+						is.val += offset
+					case is.get <- get:
+						//empty the offsetBy Buffer
+						offset, ok := <-is.offsetBy
+						for ok {
+							is.val += offset
+							offset, ok = <-is.offsetBy
+						}
+						get <- is.val
+				}
+			}
+		}()
+	}
+}
+
+type IntNode struct {
+	WorkerPool
+	//Server
+	val int
+	//setVal chan int
+	//getVal chan int
+	parent *SortedIntList
+	next *IntNodePtrServer
+	prev *IntNodePtrServer
+	index *IntNodeIndexSvr
 }
 
 func newIntNode(val int, parent *SortedIntList) (newIntNode *IntNode) {
 	newIntNode = new(IntNode)
 	newIntNode.val = val
-	newIntNode.init(parent)
+	newIntNode.parent = parent
+	//newIntNode.parent.PushWorker(newIntNode)
+	newIntNode.init()
 	return newIntNode
 }
 
-func (i *IntNode) init(parent *SortedIntList) {
-	i.parent = parent
-	i.parent.PushWorker(i)
-	i.stop = make(chan int)
-	i.valServerStop = make(chan int)
-	i.getVal = make(chan int)
-	i.setVal = make(chan int)
-	i.getStatus = make(chan string)
-	i.getNext = make(chan *IntNode)
-	i.getPrev = make(chan *IntNode)
-	i.setNext = make(chan *IntNode)
-	i.setPrev = make(chan *IntNode)
+func (i *IntNode) init() {
+	i.WorkerPool.init()
+
+	i.next = new(IntNodePtrServer)
+	i.next.init()
+	i.pushWorker(i.next)
+
+	i.prev = new(IntNodePtrServer)
+	i.prev.init()
+	i.pushWorker(i.prev)
+
+	i.index = new(IntNodeIndexSvr)
+	i.index.init()
+	i.pushWorker(i.index)
+	// Lockers for accessing the value of the element
+	//i.getVal = make(chan int)
+	//i.setVal = make(chan int)
 }
 
 func (i *IntNode) Start() {
-	// This Loop emulates Locking via a select
-	// On the channels that access this IntNode
-	// In Theory This should work
-	// The cases I'm wondering about are like when both a req for the prev pointer and a req to set th prev
-	// Happen at the same time.  I think it will work but I haven't tested it yet
-	go func() {
-		i.status = "started"
-		for {
-			//i.status = "paused"
-			select {
-				case i.getStatus <- i.status:
-				case <- i.stop:
-					i.valServerStop <- 0
-					i.status = "stopped"
-					return
-				// Set the next Pointer
-				case next := <-i.setNext:
-					//i.status = "working"
-					i.next = next
-				// Set the prev Pointer
-				case prev := <-i.setPrev:
-					//i.status = "working"
-					i.prev = prev
-				// Return the next Pointer
-				case i.getNext <- i.next:
-				// Return the prev Pointer 
-				case i.getPrev <- i.prev:
-			}
-		}
-	}()
-	go func() {
-		for {
-			select {
-				// Stop this go routine
-				case <- i.valServerStop:
-				// Return Val
-				case i.getVal <- i.val:
-				// Set Val
-				case val := <-i.setVal:
-					i.val = val
-			}
-		}
-	}()
+	i.WorkerPool.Start()
 }
 
 func (i* IntNode) Stop() {
-	go func() {
-		i.stop <- 0
-	}()
+	i.WorkerPool.Stop()
+}
+
+type ListSizeSvr struct {
+	Server
+	size uint32
+	get chan (chan uint32)
+	offsetBy chan int
+}
+
+func (ss *ListSizeSvr) init() {
+	ss.Server.init()
+	ss.get = make(chan (chan uint32))
+	ss.offsetBy = make(chan int, 200)
+}
+
+func (ss *ListSizeSvr) changeByOffset(offset int) {
+	if offset == 1 {
+		ss.size += 1
+	} else if offset == -1 {
+		ss.size -= 1
+	}
+}
+
+func (ss *ListSizeSvr) Start() {
+	if !ss.running {
+		ss.running = true
+		go func() {
+			get := make(chan uint32)
+			select {
+				case <-ss.stop:
+					ss.running = false
+					return
+				case offset := <-ss.offsetBy:
+					ss.changeByOffset(offset)
+				case ss.get <- get:
+					//Empty the ss.offsetBy buffer
+					offset, ok := <-ss.offsetBy
+					for ok {
+						ss.changeByOffset(offset)
+						offset, ok = <-ss.offsetBy
+					}
+					get <- ss.size
+			}
+		}()
+	}
 }
 
 type SortedIntList struct {
 	WorkerPool
+	Server
 	begin *IntNode
 	end *IntNode
+	middle *IntNode
 
 	Insert chan int
 	//Contains chan interface {}
-	stop chan int
-	sizeStop chan int
-	size int
-	//getSize chan (chan int)
-	setSize chan int
-	getSize chan int
+	size *ListSizeSvr
 }
 
 func NewSortedIntList() *SortedIntList {
 	newList := new(SortedIntList)
-
-	// ---- Initializations ---- //
-	newList.Insert = make(chan int)
-
-	// The channel that kills the server processes
-	newList.stop = make(chan int)
-
-	// Channels that wrap up size
-	newList.sizeStop = make(chan int)
-	newList.size = 0
-	//newList.getSize = make(chan (chan int))
-	newList.getSize = make(chan int)
-	newList.setSize = make(chan int)
-
-	// Setup the Begin and End Nodes
-	newList.begin = newIntNode(0, newList)
-	newList.end = newIntNode(0, newList)
-	newList.begin.setNext <- newList.end
-	newList.end.setPrev <- newList.begin
-	newList.PushWorker(newList)
+	newList.init()
 	return newList
+}
+
+func (sl *SortedIntList) init() {
+	sl.Server.init()
+	sl.WorkerPool.init()
+
+	sl.size = new(ListSizeSvr)
+	sl.size.init()
+	sl.pushWorker(sl.size)
+	sl.size.Start()
+
+	sl.Insert = make(chan int)
+
+	sl.begin = newIntNode(0, sl)
+	sl.pushWorker(sl.begin)
+	sl.begin.Start()
+
+	sl.end = newIntNode(0, sl)
+	sl.pushWorker(sl.end)
+	sl.end.Start()
+	sl.end.index.val = 1
 }
 
 func (sl *SortedIntList) Start() {
 	// Server for passing a value to insert or search for
-	go func() {
-		for {
-			select {
-				case <-sl.stop:
-					sl.sizeStop <- 0
-					return
-				case newVal :=  <-sl.Insert:
-					go sl.goInsert(newVal)
+	go sl.WorkerPool.Start()
+	if !sl.running {
+		sl.running = true
+		go func() {
+			for {
+				select {
+					case <-sl.stop:
+						sl.running = false
+						return
+					case newVal :=  <-sl.Insert:
+						go sl.goInsert(newVal)
+				}
 			}
-		}
-	}()
-	// Server for reading and writing to the size of the List
-	go func() {
-		//setSize := make(chan int)
-		for {
-			select {
-				case <-sl.sizeStop:
-					return
-				case newSize := <-sl.setSize:
-					sl.size += newSize
-				case sl.getSize <- sl.size:
-					//<-setSize
-					//sl.size = <-setSize
-			}
-		}
-	}()
+		}()
+	}
 }
 
 func (sl *SortedIntList) Stop() {
+	go sl.WorkerPool.Stop()
 	go func() {
 		sl.stop <- 0
 	}()
 }
 
+// this func is used once the location is discovered where the node goes
 func (sl *SortedIntList) insertHelper(prev *IntNode, insertee *IntNode,  next *IntNode) {
-	insertee.next = next
-	insertee.prev = prev
+	insertee.next.set <- next
+	insertee.prev.set <- prev
+	indexLock := <-prev.index.get
+	prevIndex := <- indexLock
+	insertee.index.offsetBy <- (prevIndex + 1)
 	go func() {
-		prev.setNext <- insertee
+		prev.next.set <- insertee
 	}()
 	go func() {
-		next.setPrev <- insertee
+		next.prev.set <- insertee
 	}()
 }
 
 func (sl *SortedIntList) goInsert(val int) {
-	curSize := <-sl.getSize
+	sizeLock := <-sl.size.get
+	curSize := <-sizeLock
 	if curSize != 0 {
-		//sizeLock <- sl.size
 	} else {
-		//sl.size++
-		sl.setSize <- +1
-		//sizeLock <- sl.size
+		sl.size.offsetBy <- 1
 		insertee := newIntNode(val, sl)
 		sl.insertHelper(sl.begin, insertee, sl.end)
+		sl.middle = insertee
 	}
 }
