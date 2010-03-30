@@ -1,15 +1,59 @@
-package main
+package node
 
 import (
 	"fmt"
+	//"runtime"
 )
 
-// Struct embeds dir prop in the channel
 
+type Comm struct {
+	comm chan interface {}
+}
+
+func (c *Comm) Init() (interface {}) {
+	c.comm = make(chan interface {})
+	return c
+}
+
+type CommIn struct {
+	in chan interface {}
+}
+
+type CommOut struct {
+	out chan interface {}
+}
+
+func (c *Comm) AsIn() (in *CommIn) {
+	in = new(CommIn)
+	in.in = c.comm
+	return
+}
+
+func (c *Comm) AsOut() (out *CommOut) {
+	out = new(CommOut)
+	out.out = c.comm
+	return
+}
+
+type DblComm struct {
+	comm []*Comm
+}
+
+func (dc *DblComm) Init() (interface {}) {
+	chan1 = (new(Comm)).Init()
+	chan2
+
+type ListComm struct {
+	DblComm
+}
+
+func (lc *ListComm)
+
+// Struct embeds dir prop in the channel
 // This Struct is for abstracting the NodeConn Struct into something more readable
 type NodeComm struct {
-	in chan interface {}
-	out chan interface {}
+	CommIn
+	CommOut
 	dir string
 }
 
@@ -50,6 +94,12 @@ func (n *NodeConn) GetAsPrev() (prev *NodeComm) {
 	return prev
 }
 
+type SimpleNode struct {
+	name string
+	comm *NodeComm
+	shutDown chan int
+}
+
 // A Node
 type Node struct {
 	name string
@@ -58,18 +108,28 @@ type Node struct {
 	shutDown chan int
 }
 
+type ControlNode struct {
+	Node
+}
+
+type NodeList struct {
+	Node
+	begin *NodeComm
+	end	*NodeComm
+	size uint64
+}
+
 func (n *Node) Init() (interface {}) {
-	n.shutDown = make(chan int, 2)
+	n.shutDown = make(chan int, 10)
 	return n
 }
 
 type Msg struct {
 	priority uint32
 	propagate bool
+	status chan string
 	str string
 }
-
-//type UnknownMsg &Msg{propagate:false}
 
 type ShutdownMsg struct {
 	Msg
@@ -79,7 +139,6 @@ type ShutdownMsg struct {
 }
 
 // Process a Msg
-// TODO: Make this do some Processing
 func (n *Node) process(msg interface {}) (outMsg interface {}, msgStr string) {
 	switch msg.(type) {
 		case string:
@@ -102,7 +161,7 @@ func (n *Node) process(msg interface {}) (outMsg interface {}, msgStr string) {
 }
 
 // Testing Func, drops a msg into the chain
-func (n *Node) dropMsg(msg interface {}, dir *NodeComm) {
+func (n *Node) DropMsg(msg interface {}, dir *NodeComm) {
 	msg, msgStr := n.process(msg)
 	ChanPrintln <- fmt.Sprint("Msg Dropped in ", n.name, ", msg: ", msgStr)
 	go func() {
@@ -138,6 +197,7 @@ func (n *Node) openProxyEndPt(comm *NodeComm) {
 							sdMsg.complete <- n.name
 						}
 					case shutDown := <-n.shutDown:
+						// Nonblocking since it is buffered, ensures that all other "server" go routines exit
 						n.shutDown <- shutDown
 						return
 				}
@@ -171,74 +231,5 @@ func (n *Node) openProxy(in *NodeComm, out *NodeComm) {
 }
 
 func (n *Node) Start() {
-	//for (closed(prev.comm) && closed(next.comm)) || (prev == nil && next == nil) {
-		//select {
-			//case
 }
 
-var ChanPrintln chan string
-
-func init() {
-	ChanPrintln = make(chan string, 500)
-}
-
-func Dump() {
-	for !closed(ChanPrintln) {
-		msg := <-ChanPrintln
-		if msg == "" {
-			msg = "I think the channel is closed"
-			close(ChanPrintln)
-		}
-		fmt.Println(msg)
-	}
-}
-
-func main() {
-
-
-	conn1 := (new(NodeConn).Init()).(*NodeConn)
-	conn2 := (new(NodeConn).Init()).(*NodeConn)
-
-	node1 := &Node{name:"Begin"}
-	node2 := &Node{name:"Mid"}
-	node3 := &Node{name:"End"}
-
-	node1.Init()
-	node2.Init()
-	node3.Init()
-
-	node1.connect(nil, conn1)
-	node2.connect(conn1, conn2)
-	node3.connect(conn2, nil)
-
-	node1.openProxyEndPt(node1.next)
-	node2.openProxy(node2.prev, node2.next)
-	node2.openProxy(node2.next, node2.prev)
-	node3.openProxyEndPt(node3.prev)
-
-	//go func() {
-	go func() {
-		node1.dropMsg("Dropped in Node1", node1.next)
-	}()
-
-	go func() {
-		node3.dropMsg("Dropped in Node3", node3.prev)
-	}()
-
-	go func() {
-		msg := &ShutdownMsg{from:node1, complete:make(chan string)}
-		msg.propagate = true
-		node1.dropMsg(*msg, node1.next)
-		nodeName := <-msg.complete
-		ChanPrintln <- fmt.Sprint("Shutdown Completed, ended on >", nodeName)
-		close(ChanPrintln)
-	}()
-
-	fmt.Printf("\n\n");
-
-	Dump()
-	conn1.Close()
-	conn2.Close()
-
-	fmt.Printf("\n\n");
-}

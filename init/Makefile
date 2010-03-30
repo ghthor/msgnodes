@@ -1,7 +1,7 @@
 include $(GOROOT)/src/Make.$(GOARCH)
 
-TARG=ghthor/SortedList
+TARG=ghthor/init
 GOFILES=\
-	SortedList.go\
+	init.go\
 
 include $(GOROOT)/src/Make.pkg

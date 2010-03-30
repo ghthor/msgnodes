@@ -1,7 +1,7 @@
 include $(GOROOT)/src/Make.$(GOARCH)
 
-TARG=ghthor/Server
+TARG=ghthor/object
 GOFILES=\
-	Server.go\
+	object.go\
 
 include $(GOROOT)/src/Make.pkg
