@@ -1,0 +1,12 @@
+
+node.go
+
+Goals -
+	-Fully concurrent mesh
+	-Nearly all data stored in Nodes
+	 -Def Node
+		*2 chan{in,out} NOTE: Could potentionly store varible number of channels
+			-a channel that takes a comm on channel on it, along with it's instruction set
+			-if the node doesn't have access to the exec func, compile the code
+			-basicNode attack by donphins, sabatoged eryko
+		*varible buffer length

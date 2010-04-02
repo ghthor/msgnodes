@@ -2,127 +2,67 @@ package node
 
 import (
 	"fmt"
+	i "ghthor/init"
+	c "ghthor/comm"
 	//"runtime"
 )
-
-
-type Comm struct {
-	comm chan interface {}
-}
-
-func (c *Comm) Init() (interface {}) {
-	c.comm = make(chan interface {})
-	return c
-}
-
-type CommIn struct {
-	in chan interface {}
-}
-
-type CommOut struct {
-	out chan interface {}
-}
-
-func (c *Comm) AsIn() (in *CommIn) {
-	in = new(CommIn)
-	in.in = c.comm
-	return
-}
-
-func (c *Comm) AsOut() (out *CommOut) {
-	out = new(CommOut)
-	out.out = c.comm
-	return
-}
-
-type DblComm struct {
-	comm []*Comm
-}
-
-func (dc *DblComm) Init() (interface {}) {
-	chan1 = (new(Comm)).Init()
-	chan2
-
-type ListComm struct {
-	DblComm
-}
-
-func (lc *ListComm)
 
 // Struct embeds dir prop in the channel
 // This Struct is for abstracting the NodeConn Struct into something more readable
 type NodeComm struct {
 	CommIn
 	CommOut
-	dir string
 }
 
-// This is the class that all nodes communicate through
-// TODO: buffer and sort msg's by priority
-type NodeConn struct {
-	next chan interface {}
-	prev chan interface {}
-}
-
-// Create the channels for communicating
-func (n *NodeConn) Init() (interface {}) {
-	n.next = make(chan interface {})
-	n.prev = make(chan interface {})
-	return n
-}
-
-func (n *NodeConn) Close() {
-	close(n.next)
-	close(n.prev)
-}
-
-// abstract this conn into and in/out NodeComm to the next Node
-func (n *NodeConn) GetAsNext() (next *NodeComm) {
-	next = new(NodeComm)
-	next.in = n.prev
-	next.out = n.next
-	next.dir = "Next->"
-	return next
-}
-
-// abstract this conn into and in/out NodeComm to the prev Node
-func (n *NodeConn) GetAsPrev() (prev *NodeComm) {
-	prev = new(NodeComm)
-	prev.in = n.next
-	prev.out = n.prev
-	prev.dir = "<-Prev"
-	return prev
-}
-
-type SimpleNode struct {
-	name string
-	comm *NodeComm
+type BaseNode struct {
+	i.InitVar
+	MsgProcessor
+	NodeComm
 	shutDown chan int
 }
 
-// A Node
-type Node struct {
-	name string
-	prev *NodeComm
-	next *NodeComm
+type BaseNodeInit struct {
+	in *c.Comm
+	out *c.Comm
 	shutDown chan int
 }
 
-type ControlNode struct {
-	Node
-}
+func (n *BaseNode) Init(arg interface {}) (interface {}) {
+	arg = n.InitVar.Init(arg)
+	var initArg *BaseNodeInit
+	switch arg.(type) {
+		case BaseNodeInit:
+			initArg = &arg.(BaseNodeInit)
+		case *BaseNodeInit:
+			initArg = arg.(*BaseNodeInit)
+		case c.Comm:
+			temp := arg.(c.Comm)
+			initArg = &BaseNodeInit{in:&c.Comm, out:&c.Comm}
+		case *c.Comm:
+			temp := arg.(*c.Comm)
+			initArg = &BaseNodeInit{in:c.Comm, out:c.Comm}
+		default:
+			//TODO: Invalid Initializer
+			//Really difficult to have a base case becuase I don't want the nodes to be creating Comm objects
+			// The reason they can't create comm objects is because they Don't ever have a pointer to a comm object
+			return
+	}
+	n.InitArg = initArg
+	n.in = initArg.in.AsIn()
+	n.out = initArg.out.AsOut()
+	if initArg.shutDown != nil {
+		n.shutDown = initArg.shutDown
+	} else {
+		n.shutDown = make(chan int, 1)
+	}
 
-type NodeList struct {
-	Node
-	begin *NodeComm
-	end	*NodeComm
-	size uint64
-}
-
-func (n *Node) Init() (interface {}) {
-	n.shutDown = make(chan int, 10)
 	return n
 }
+
+func (n *BaseNode) Listen() {
+}
+
+//func (n *BaseNode) OpenProxy(
 
 type Msg struct {
 	priority uint32
@@ -133,7 +73,6 @@ type Msg struct {
 
 type ShutdownMsg struct {
 	Msg
-	val string
 	from *Node
 	complete chan string
 }
@@ -228,8 +167,5 @@ func (n *Node) openProxy(in *NodeComm, out *NodeComm) {
 			}
 		}()
 	}
-}
-
-func (n *Node) Start() {
 }
 

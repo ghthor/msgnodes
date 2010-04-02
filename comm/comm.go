@@ -6,6 +6,8 @@ import (
 	//"runtime"
 )
 
+// (type)Init structs Allow for Simplified Construction
+// especially with complex embedded types
 type CommInit struct {
 	BufferLen int
 }
@@ -15,47 +17,40 @@ type ComplexCommInit struct {
 	NumChan int
 }
 
+// Defines a channel with embedded Buffer Length for easy cloning of an instance
 type Comm struct {
 	i.InitVar
 	comm chan interface {}
 }
 
+// Constructor
 func (c *Comm) Init(arg interface {}) (interface {}) {
+	// Call to embedded Init func that Checks for nil and reassigns arg to i.Default
 	arg = c.InitVar.Init(arg)
 	var initArg CommInit
 
 	// Allow for Weird combos of arg for initialization
-	switch arg.(type) {
-		//case *CommInit:
-			//initArg = arg.(*CommInit)
-		case CommInit:
-			initArg = arg.(CommInit)
-		case int:
-			initArg = CommInit{BufferLen:arg.(int)}
-		// May Implement this Differently
-		// - Could be used like cloned := clonee.Init(init.Clone{}).(*typeOfClonee) or cloned.Init(clonee)
-		case i.Clone:
-		case i.Default:
-			initArg = CommInit{BufferLen:0}
-		default:
-			// TODO: make this throw some kinda error
-			initArg = CommInit{BufferLen:0}
-	}
-	if initArg.BufferLen == 0 {
-		c.comm = make(chan interface {})
+	if x, ok := arg.(CommInit); ok {
+		initArg = x
+	} else if x, ok := arg.(int); ok {
+		initArg = CommInit{BufferLen:x}
 	} else {
-		c.comm = make(chan interface {}, initArg.BufferLen)
+		initArg = CommInit{BufferLen:0}
 	}
+
+	// Initialize c *Comm
+	c.comm = make(chan interface {}, initArg.BufferLen)
 	c.InitArg = &initArg
 	return c
 }
 
+// Clean-up (Destructor)
 func (c *Comm) Dispose(disposeComplete chan string) {
 	//TODO: Maybe have this do some reporting, like if there are things left on the channel when it got closed
 	close(c.comm)
 }
 
-// These 2 struct's Makes the code a little ezier to read down the road
+// These 2 struct's and func's Make the code a little ezier to read down the road
 type CommIn struct {
 	in chan interface {}
 }
@@ -81,9 +76,30 @@ type ComplexComm struct {
 	comm []*Comm
 }
 
+// Constructor
 func (cc *ComplexComm) Init(arg interface {}) (interface {}) {
+	// nil Check
 	arg = cc.InitVar.Init(arg)
 	var initArg ComplexCommInit
+	if x, ok := arg.(ComplexCommInit); ok {
+		initArg = x
+	} else if x, ok := arg.(int); ok {
+		initArg = ComplexCommInit{NumChan:x}
+	} else if x, ok := arg.(CommInit); ok {
+		initArg = ComplexCommInit{NumChan:2, CommInit:x}
+	} else {
+		initArg = ComplexCommInit{NumChan:2} // CommInit.BufferLen defaults to 0
+	}
+
+/*	What I thought was that the statement
+		case ComplextCommInit:
+	was taking the place of
+		if x, ok := arg.(ComplexCommInit); ok
+	But now I understand that
+		switch arg.(type)
+	is just querying arg's declared type which is interface {}
+	I misunderstodd Type Switch, for Type Assertion Switch
+
 	switch arg.(type) {
 		case ComplexCommInit:
 			initArg = arg.(ComplexCommInit)
@@ -93,14 +109,11 @@ func (cc *ComplexComm) Init(arg interface {}) (interface {}) {
 		case CommInit:
 			initArg.NumChan = 2
 			initArg.BufferLen = arg.(CommInit).BufferLen
-		case i.Default:
-			initArg.NumChan = 2
-			initArg.BufferLen = 0
 		default:
-			//TODO: Make this throw an error
 			initArg.NumChan = 2
 			initArg.BufferLen = 0
 	}
+*/
 	cc.comm = make([]*Comm, initArg.NumChan)
 	for i := 0; i < len(cc.comm); i++ {
 		cc.comm[i] = new(Comm).Init(initArg.CommInit).(*Comm)
@@ -109,59 +122,10 @@ func (cc *ComplexComm) Init(arg interface {}) (interface {}) {
 	return cc
 }
 
+// Destructor
 func (cc *ComplexComm) Dispose(disposeComplete chan string) {
 	for i := 0; i < len(cc.comm); i++ {
 		cc.comm[i].Dispose(disposeComplete)
 	}
-}
-
-type ListComm struct {
-}
-
-//func (lc *ListComm)
-
-// Struct embeds dir prop in the channel
-// This Struct is for abstracting the NodeConn Struct into something more readable
-type NodeComm struct {
-	CommIn
-	CommOut
-	dir string
-}
-
-// This is the class that all nodes communicate through
-// TODO: buffer and sort msg's by priority
-type NodeConn struct {
-	next chan interface {}
-	prev chan interface {}
-}
-
-// Create the channels for communicating
-func (n *NodeConn) Init() (interface {}) {
-	n.next = make(chan interface {})
-	n.prev = make(chan interface {})
-	return n
-}
-
-func (n *NodeConn) Close() {
-	close(n.next)
-	close(n.prev)
-}
-
-// abstract this conn into and in/out NodeComm to the next Node
-func (n *NodeConn) GetAsNext() (next *NodeComm) {
-	next = new(NodeComm)
-	next.in = n.prev
-	next.out = n.next
-	next.dir = "Next->"
-	return next
-}
-
-// abstract this conn into and in/out NodeComm to the prev Node
-func (n *NodeConn) GetAsPrev() (prev *NodeComm) {
-	prev = new(NodeComm)
-	prev.in = n.next
-	prev.out = n.prev
-	prev.dir = "<-Prev"
-	return prev
 }
 
