@@ -6,19 +6,19 @@
 
 #make -C ./Server clean
 #rm $GOROOT/pkg/linux_amd64/ghthor/Server.a
-make -C ./Init clean
+make -C ./init clean
 rm $GOROOT/pkg/linux_amd64/ghthor/init.a
 
-make -C ./Debug clean
+make -C ./debug clean
 rm $GOROOT/pkg/linux_amd64/ghthor/debug.a
 
-make -C ./Comm clean
+make -C ./comm clean
 rm $GOROOT/pkg/linux_amd64/ghthor/comm.a
 
-make -C ./Node clean
+make -C ./node clean
 rm $GOROOT/pkg/linux_amd64/ghthor/node.a
 
-make -C ./Object clean
+make -C ./object clean
 rm $GOROOT/pkg/linux_amd64/ghthor/object.a
 
-make -C ./Main clean
+make -C ./main clean
