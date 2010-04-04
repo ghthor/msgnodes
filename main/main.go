@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"container/vector"
+	"container/list"
 	//"rand"
 	//i "ghthor/init"
 	//"ghthor/node"
@@ -24,10 +25,27 @@ func NewAtomInt64Node(in chan interface {}) (*AtomInt64Node) {
 	return an
 }
 
+func NewMsgBuffer() (*MsgBuffer) {
+	b := new(MsgBuffer)
+	b.shutDown = make(chan int, 1)
+	b.isRunning = false
+	b.Listen()
+	return b
+}
+
+type MsgBuffer struct {
+	lowP list.List
+	highP list.List
+	in chan interface {}
+	isRunning bool
+	shutDown chan int
+}
+
 type AtomInt64Node struct {
 	val int64
 	isRunning bool
 	in chan interface {}
+	nextMsg chan interface {}
 	shutDown chan int
 	monitors vector.Vector
 }
