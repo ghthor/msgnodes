@@ -11,6 +11,9 @@ type InitVar struct {
 type Default struct {
 }
 
+type Clone struct {
+}
+
 // Used to check for a nil value passed to a Init() call
 // If nil is passed this turns arg into a Default
 func (iv *InitVar) Init(arg interface {}) (interface {}) {
@@ -18,7 +21,4 @@ func (iv *InitVar) Init(arg interface {}) (interface {}) {
 		arg = Default{}
 	}
 	return arg
-}
-
-type Clone struct {
 }

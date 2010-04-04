@@ -1,7 +1,7 @@
 package node
 
 import (
-	"fmt"
+	//"fmt"
 	i "ghthor/init"
 	c "ghthor/comm"
 	//"runtime"
@@ -10,14 +10,14 @@ import (
 // Struct embeds dir prop in the channel
 // This Struct is for abstracting the NodeConn Struct into something more readable
 type NodeComm struct {
-	CommIn
-	CommOut
+	c.CommIn
+	c.CommOut
 }
 
 type BaseNode struct {
 	i.InitVar
-	MsgProcessor
 	NodeComm
+	Running bool
 	shutDown chan int
 }
 
@@ -28,28 +28,33 @@ type BaseNodeInit struct {
 }
 
 func (n *BaseNode) Init(arg interface {}) (interface {}) {
-	arg = n.InitVar.Init(arg)
-	var initArg *BaseNodeInit
+	//arg = n.InitVar.Init(arg)
+	var initArg BaseNodeInit
 	switch arg.(type) {
 		case BaseNodeInit:
-			initArg = &arg.(BaseNodeInit)
+			initArg = arg.(BaseNodeInit)
 		case *BaseNodeInit:
-			initArg = arg.(*BaseNodeInit)
+			initArg = *arg.(*BaseNodeInit)
+		/*
 		case c.Comm:
-			temp := arg.(c.Comm)
-			initArg = &BaseNodeInit{in:&c.Comm, out:&c.Comm}
+			temp := (arg.(c.Comm))
+			initArg = BaseNodeInit{in:temp, out:temp, shutDown:make(chan int, 1)}
 		case *c.Comm:
 			temp := arg.(*c.Comm)
-			initArg = &BaseNodeInit{in:c.Comm, out:c.Comm}
+			initArg = BaseNodeInit{in:temp, out:temp, shutDown:make(chan int, 1)}
+		*/
 		default:
 			//TODO: Invalid Initializer
 			//Really difficult to have a base case becuase I don't want the nodes to be creating Comm objects
 			// The reason they can't create comm objects is because they Don't ever have a pointer to a comm object
-			return
+			return n
 	}
-	n.InitArg = initArg
-	n.in = initArg.in.AsIn()
-	n.out = initArg.out.AsOut()
+	//n.InitArg = initArg
+	//n.in = initArg.in.AsIn()
+	//n.out = initArg.out.AsOut()
+	n.Running = false
+	n.In = initArg.in.AsIn().In
+	n.Out = initArg.out.AsOut().Out
 	if initArg.shutDown != nil {
 		n.shutDown = initArg.shutDown
 	} else {
@@ -59,24 +64,53 @@ func (n *BaseNode) Init(arg interface {}) (interface {}) {
 	return n
 }
 
-func (n *BaseNode) Listen() {
+func (n *BaseNode) Dispose() {
 }
 
-//func (n *BaseNode) OpenProxy(
+func (n *BaseNode) Stop() {
+	go func() {
+		n.Lock()
+		if n.Running {
+			n.shutDown <- 0
+		}
+		n.Unlock()
+	}()
+}
 
 type Msg struct {
-	priority uint32
-	propagate bool
-	status chan string
-	str string
+	Priority uint32
 }
 
 type ShutdownMsg struct {
 	Msg
-	from *Node
-	complete chan string
+	//from *Node
+	Complete chan string
 }
 
+type AtomIntNode struct {
+	BaseNode
+	val int
+}
+
+type Query struct {
+	Msg
+	val chan int
+}
+
+func (q *Query) Init(arg interface {})(interface {}) {
+	q.Priority = 200
+}
+
+type OffsetBy struct {
+	Msg
+	off int
+}
+
+type QueryAndOffset struct {
+	Msg
+}
+
+/*
 // Process a Msg
 func (n *Node) process(msg interface {}) (outMsg interface {}, msgStr string) {
 	switch msg.(type) {
@@ -168,4 +202,4 @@ func (n *Node) openProxy(in *NodeComm, out *NodeComm) {
 		}()
 	}
 }
-
+*/
