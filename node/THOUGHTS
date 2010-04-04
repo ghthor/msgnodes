@@ -4,7 +4,30 @@ node.go
 Goals -
 	-Fully concurrent mesh
 	-Nearly all data stored in Nodes
-	 -Define Node
+	 -Node
+		- A Node represents a Go Routine
+		- A Node is always a Consumer
+		- It has a MsgIn Channel that recieves Msg's
+		- If The Node communicates with other objects then the message should contain channels for that commication
+		- type Node interface {
+			PassMsg() (chan interface {})
+			Listen() // Starts the Go Routine
+			Stop()   // Stops the Go Routine
+		  }
+	 -BaseNode
+		- Represents a Struct
+			struct { Running bool; ShutDown chan int; sync.Mutex }
+		- Running reports the state of the Go Routine
+		- Passing a Value to ShutDown kills the Go Routine on its next pass
+		- Mutex Locks access to Running, since Multiple threads in theory could call Stop() ( Hopefully Not, Being Safe )
+	 -Proxy Node
+		- A Proxy Node Proxies Msg's between 2 Nodes
+		- A Proxy Node is a Producer and Consumer
+			Example: A Node for a Dbl Linked List would have 1 Complex Proxy(has 3 Outs) 
+					 2 Simple Proxy Nodes, and 1 Normal Node
+				- Complex Proxy Represents MsgIn(), Outputs to Any of the Other Nodes
+				- Simple Proxy would Represent <-Prev and ->Next
+
 		*2 chan{in,out} NOTE: Could potentionly store varible number of channels
 			-a channel that takes a comm on channel on it, along with it's instruction set
 			-if the node doesn't have access to the exec func, compile the code
