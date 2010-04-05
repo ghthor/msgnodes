@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"net"
+	//"net"
 	"os"
+	"time"
 	"runtime"
 	"rand"
 	//"container/vector"
@@ -50,7 +51,8 @@ func main() {
 	fmt.Printf("\n\n");
 
 	buf := new(bufNode.BufferNode).Init(40, nil)
-	defer buf.Dispose()
+	defer buf.Stop()
+	//defer buf.Dispose()
 	buf.Listen()
 
 	newMsg := make(chan Msg, 2)
@@ -61,18 +63,20 @@ func main() {
 		for !closed(newMsg) {
 			switch rand.Intn(10) {
 				case 0:
-					//newMsg <- HighPrior{}.(Msg)
 					newMsg <- new(HighPrior)
 				case 1,2,3,4,5,6,7,8,9:
-					//newMsg <- LowPrior{}.(Msg)
 					newMsg <- new(LowPrior)
 			}
 		}
 	}()
 
+	joinCh := make(chan bool)
+	defer close(joinCh)
+
+	numMsgs := 200
 	go func() {
 		// Fill Buffer with 10 Msgs
-		for i := 0; i < 200; i++ {
+		for i := 0; i < numMsgs; i++ {
 			if closed(newMsg) || closed(buf.In) { return }
 			msg := <-newMsg
 			buf.In <- msg
@@ -90,27 +94,12 @@ func main() {
 			msg.SetProcId(MsgsProcessed)
 			MsgsProcessed++
 			fmt.Printf("MsgPrior: %v \tRecvId: %v \tProcId: %v \tMsgsBuffered: %v\n", msg.Priority(), msg.RecvId(), msg.ProcId(), buf.MsgsBuffered)
+			if MsgsProcessed >= uint64(numMsgs) { joinCh <- true; return }
 		}
 	}()
 
-	listenAddr, err := net.ResolveTCPAddr("localhost:52000")
-	if Errored(err, "Resolving TCP Addr") { return }
 
-	fmt.Println("Listening For Connections")
-	tcpServer, err := net.ListenTCP("tcp4",listenAddr)
-	if Errored(err, "Starting to Listen for Connections") { return }
-
-	fmt.Println("Waiting on Connection")
-	socket, err := tcpServer.AcceptTCP()
-	if Errored(err, "While Accepting TCP Connection") { return }
-	tcpServer.Close()
-
-	data := make([]byte, 4)
-	fmt.Println("Waiting For Kill Signal")
-	bytesRead, err := socket.Read(data)
-	fmt.Printf("BytesRead: %v", bytesRead)
-	if Errored(err, "While Waiting for the kill Signal") { return }
-	socket.Close()
-
-	fmt.Printf("\n\n");
+	<-joinCh
+	time.Sleep(2000)
+	fmt.Printf("\n\n")
 }

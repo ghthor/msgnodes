@@ -97,6 +97,7 @@ func (bn *BufferNode) PopNextInto(MsgChan chan Msg) {
 
 func (bn *BufferNode) FillTo(numToBuf uint64) (bool) {
 	for bn.MsgsBuffered < numToBuf {
+		if closed(bn.In) || closed(bn.ShutDownCh) { return false }
 		select {
 			case msg := <-bn.In:
 				bn.bufferMsg(msg)
@@ -114,6 +115,7 @@ func (bn *BufferNode) FillTo(numToBuf uint64) (bool) {
 
 func (bn *BufferNode) Fill() (bool) {
 	for bn.MsgsBuffered < bn.BufferTo {
+		if closed(bn.In) || closed(bn.ShutDownCh) { return false }
 		select {
 			case msg := <-bn.In:
 				bn.bufferMsg(msg)

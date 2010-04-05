@@ -12,6 +12,7 @@ import (
 	//i "ghthor/init"
 	//"ghthor/node"
 	bufNode "ghthor/node/buffer"
+	"ghthor/node"
 )
 
 func Errored(e os.Error, mesg string) bool {
@@ -23,66 +24,74 @@ func Errored(e os.Error, mesg string) bool {
 	return false
 }
 
-type Msg struct {
-	prior int
+type HighPrior struct {
+	node.BaseMsg
 }
 
+func (hp *HighPrior) Priority() (uint64) {
+	return 0
+}
+
+type LowPrior struct {
+	node.BaseMsg
+}
+
+func (lp *LowPrior) Priority() (uint64) {
+	return 2
+}
+
+type Msg node.Msg
+
 func main() {
-	runtime.GOMAXPROCS(2)
+	runtime.GOMAXPROCS(4)
 	ts, _, _ := os.Time()
 	fmt.Printf("TimeSec: %v\n", ts)
 	rand.Seed(ts)
 	fmt.Printf("\n\n");
 
-	in := make(chan Msg)
-	bufferIn := make(chan Msg)
-	numPrior := 3
-	prChans := make([](chan Msg), numPrior)
-	for i := 0; i < numPrior; i++ {
-		prChans[i] = make(chan Msg, 20)
-		defer close(prChans[i])
-	}
+	buf := new(bufNode.BufferNode).Init(40, nil)
+	defer buf.Dispose()
+	buf.Listen()
 
-	defer close(in)
-	defer close(bufferIn)
+	newMsg := make(chan Msg, 2)
+	defer close(newMsg)
 
 	// Feed the Buffer
 	go func() {
-		for !closed(bufferIn) {
-			select {
-				case bufferIn <- Msg{rand.Intn(numPrior)}:
-				case bufferIn <- Msg{rand.Intn(numPrior)}:
+		for !closed(newMsg) {
+			switch rand.Intn(10) {
+				case 0:
+					newMsg <- new(HighPrior)
+				case 1,2,3,4,5,6,7,8,9:
+					newMsg <- new(LowPrior)
 			}
 		}
 	}()
 
-	// Fill Buffer with 10 Msgs
-	for i := 0; i < 10; i++ {
-		msg := <-bufferIn
-		prChans[msg.prior] <- msg
-	}
+	joinCh := make(chan bool)
+	defer close(joinCh)
 
 	go func() {
-		for !closed(in) {
-			select {
-				case msg := <-prChans[0]:
-				default:
-				select {
-					case msg := <-prChans[1]:
-					default:
-					select {
-						case msg := <-prChans[2]:
-						default:
-					}
-				}
-			}
+		// Fill Buffer with 10 Msgs
+		for i := 0; i < 200; i++ {
+			if closed(newMsg) || closed(buf.In) { return }
+			msg := <-newMsg
+			buf.In <- msg
 		}
+		joinCh <- true
 	}()
 
+	var MsgsProcessed uint64 = 0
+
 	go func() {
-		for !closed(in) {
-			msg := <-in
-			fmt.Printf("MsgPrior: %v\n", msg.prior)
+		for !closed(buf.MsgReq) {
+			msgChan := <-buf.MsgReq
+			if msgChan == nil { return }
+			msg := <-msgChan
+			if msg == nil { return }
+			msg.SetProcId(MsgsProcessed)
+			MsgsProcessed++
+			fmt.Printf("MsgPrior: %v \tRecvId: %v \tProcId: %v \tMsgsBuffered: %v\n", msg.Priority(), msg.RecvId(), msg.ProcId(), buf.MsgsBuffered)
 		}
 	}()
 
