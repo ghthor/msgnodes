@@ -1,6 +1,6 @@
 include $(GOROOT)/src/Make.$(GOARCH)
 
-TARG=bufferTest.app
+TARG=example.app
 GOFILES=\
 	main.go\
 

@@ -10,6 +10,7 @@ func init() {
 	chanPrintln = make(chan string, 500)
 }
 
+// This Needs to be a Node
 func PrintlnDump() {
 	for !closed(chanPrintln) {
 		msg := <-chanPrintln
@@ -21,6 +22,7 @@ func PrintlnDump() {
 	}
 }
 
+// This doesn't Really Work, Needs to be a Node
 func PushMsg(msg string) {
 	go func() {
 		ok := chanPrintln <- msg

@@ -2,31 +2,26 @@ package object
 
 import (
 	"container/vector"
-	i "ghthor/init"
 )
 
 type ObId uint64
 
 type Object interface {
-	i.Initialize
 	Dispose(chan string)
 }
 
 type BaseObject struct {
-	i.InitVar
 	Id ObId
 }
 
-func (o *BaseObject) Init(interface {}) (interface {}) {
+func (o *BaseObject) Init(interface {}) (*BaseObject) {
 	return o
 }
 
 func (o *BaseObject) Dispose(disFinished chan string) {
 }
 
-//TODO: finish this after constructing the comm Package
-//type IdSvr struct {
-
+//TODO: Implement the global object monitor on Node's!
 
 //TODO: Record Object status's to a file to be used for optimization
 // Like avg num of objects created so we can scale the objects vector

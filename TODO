@@ -1,6 +1,6 @@
 
--Move types and interfaces away from Main/main.go into their own package
--Implement Message Buffering Node
-	-Implement the New Messages nessacary for BUfferingNode to work
+-Implement Message Buffering Node <x>
+	-Implement the New Messages nessacary for BufferNode to work
 	-Msg.Priority, etc.
--Rewrite all of SortedList to support the new design of Node's, NodeConn/NodeComm, and BufferedNode's
+
+-Implement AtomicInt Node's to Test out the effectivness of BufferNode <>

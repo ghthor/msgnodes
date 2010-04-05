@@ -1,24 +1,22 @@
 #!/bin/bash
 
-#  This pkg Needs to Be Updated to use the New Server pkg
-#make -C ./SortedList clean
-#rm $GOROOT/pkg/linux_amd64/ghthor/SortedList.a
-
-#make -C ./Server clean
-#rm $GOROOT/pkg/linux_amd64/ghthor/Server.a
-make -C ./init clean
-rm $GOROOT/pkg/linux_amd64/ghthor/init.a
-
-make -C ./debug clean
-rm $GOROOT/pkg/linux_amd64/ghthor/debug.a
-
-make -C ./comm clean
-rm $GOROOT/pkg/linux_amd64/ghthor/comm.a
-
+echo && echo --- Cleaning Packages ---
+echo
+echo --- node ---
 make -C ./node clean
 rm $GOROOT/pkg/linux_amd64/ghthor/node.a
 
+echo
+echo --- buffer ---
+make -C ./node/buffer clean
+rm $GOROOT/pkg/linux_amd64/ghthor/node/buffer.a
+
+echo
+echo --- debug ---
+make -C ./debug clean
+rm $GOROOT/pkg/linux_amd64/ghthor/debug.a
+
+echo
+echo --- object ---
 make -C ./object clean
 rm $GOROOT/pkg/linux_amd64/ghthor/object.a
-
-make -C ./main clean
