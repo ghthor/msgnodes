@@ -5,13 +5,28 @@ import (
 	//i "ghthor/init"
 	//c "ghthor/comm"
 	//"runtime"
+	"sync"
 )
 
 type MsgPriority uint64
 
 type Msg interface {
-	Priority() MsgPriority
+	Priority()(uint64) 
+	SetRecvId(uint64)
+	SetProcId(uint64)
+	RecvId() (uint64)
+	ProcId() (uint64)
 }
+
+type BaseMsg struct {
+	recvId uint64
+	procId uint64
+}
+
+func (m *BaseMsg) SetRecvId(id uint64) { m.recvId = id }
+func (m *BaseMsg) RecvId() (uint64) { return m.recvId }
+func (m *BaseMsg) SetProcId(id uint64) { m.procId = id }
+func (m *BaseMsg) ProcId() (uint64) { return m.procId }
 
 type Node interface {
 	PassMsg() (chan Msg)
@@ -21,21 +36,23 @@ type Node interface {
 
 type BaseNode struct {
 	Running bool
-	ShutDown chan int
+	ShutDownCh chan int
 	sync.Mutex
 }
 
-func (n *BaseNode) Init(ShutDown chan int) (*BaseNode) {
+// Sets the ShutDownCh channel if it is going to linked with other Node's Shutdown channels
+func (n *BaseNode) Init(ShutDownCh chan int) (*BaseNode) {
 	n.Running = false
-	if ShutDown == nil {
-		n.ShutDown = make(chan int, 1)
+	if ShutDownCh == nil {
+		n.ShutDownCh = make(chan int, 1)
 	} else {
-		n.ShutDown = ShutDown
+		n.ShutDownCh = ShutDownCh
 	}
 	return n
 }
 
 func (n *BaseNode) Dispose() {
+	close(n.ShutDownCh)
 }
 
 func (n *BaseNode) Stop() {
@@ -43,11 +60,19 @@ func (n *BaseNode) Stop() {
 		n.Lock()
 		if n.Running {
 			n.Unlock()
-			n.shutDown <- 0
+			n.ShutDownCh <- 0
 			return
 		}
 		n.Unlock()
 	}()
+}
+
+func (n *BaseNode) ShutDown(sdVal int) {
+	n.Lock()
+	n.Running = false
+	n.Unlock()
+	sdVal++
+	n.ShutDownCh <- sdVal
 }
 
 /*
@@ -65,7 +90,7 @@ func (n *Node) process(msg interface {}) (outMsg interface {}, msgStr string) {
 			msgStr = fmt.Sprint("ShutdownMsg from: ", sdMsg.from.name)
 			sdMsg.from = n
 			outMsg = sdMsg
-			n.shutDown <- 0
+			n.ShutDownCh <- 0
 		default:
 			outMsg = &Msg{propagate:false, str:"Unknown Msg"}
 			msgStr = outMsg.(Msg).str
@@ -109,9 +134,9 @@ func (n *Node) openProxyEndPt(comm *NodeComm) {
 						if isSD {
 							sdMsg.complete <- n.name
 						}
-					case shutDown := <-n.shutDown:
+					case ShutDownCh := <-n.ShutDownCh:
 						// Nonblocking since it is buffered, ensures that all other "server" go routines exit
-						n.shutDown <- shutDown
+						n.ShutDownCh <- ShutDownCh
 						return
 				}
 			}
@@ -134,8 +159,8 @@ func (n *Node) openProxy(in *NodeComm, out *NodeComm) {
 							ChanPrintln <- fmt.Sprint(n.name, ": ", msgStr)
 							out.out <- outMsg
 						}
-					case shutDown := <-n.shutDown:
-						n.shutDown <- shutDown
+					case ShutDownCh := <-n.ShutDownCh:
+						n.ShutDownCh <- ShutDownCh
 						return
 				}
 			}

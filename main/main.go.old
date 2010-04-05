@@ -2,56 +2,108 @@ package main
 
 import (
 	"fmt"
+	"net"
+	"os"
 	"runtime"
-	"ghthor/node"
+	"rand"
+	//"container/vector"
+	//"container/list"
+	//"rand"
+	//i "ghthor/init"
+	//"ghthor/node"
+	bufNode "ghthor/node/buffer"
 )
 
+func Errored(e os.Error, mesg string) bool {
+	if(e != nil) {
+		fmt.Printf("Errored %s\n",mesg)
+		fmt.Println(e.String())
+		return true
+	}
+	return false
+}
+
+type Msg struct {
+	prior int
+}
+
 func main() {
-
 	runtime.GOMAXPROCS(2)
-
-	conn1 := (new(NodeConn).Init()).(*NodeConn)
-	conn2 := (new(NodeConn).Init()).(*NodeConn)
-
-	node1 := &Node{name:"Begin"}
-	node2 := &Node{name:"Mid"}
-	node3 := &Node{name:"End"}
-
-	node1.Init()
-	node2.Init()
-	node3.Init()
-
-	node1.connect(nil, conn1)
-	node2.connect(conn1, conn2)
-	node3.connect(conn2, nil)
-
-	node1.openProxyEndPt(node1.next)
-	node2.openProxy(node2.prev, node2.next)
-	node2.openProxy(node2.next, node2.prev)
-	node3.openProxyEndPt(node3.prev)
-
-	//go func() {
-	go func() {
-		node1.dropMsg("Dropped in Node1", node1.next)
-	}()
-
-	go func() {
-		node3.dropMsg("Dropped in Node3", node3.prev)
-	}()
-
-	go func() {
-		msg := &ShutdownMsg{Msg:Msg{propagate:true},from:node1, complete:make(chan string)}
-		node1.dropMsg(*msg, node1.next)
-		nodeName := <-msg.complete
-		ChanPrintln <- fmt.Sprint("Shutdown Completed, ended on >", nodeName)
-		close(ChanPrintln)
-	}()
-
+	ts, _, _ := os.Time()
+	fmt.Printf("TimeSec: %v\n", ts)
+	rand.Seed(ts)
 	fmt.Printf("\n\n");
 
-	Dump()
-	conn1.Close()
-	conn2.Close()
+	in := make(chan Msg)
+	bufferIn := make(chan Msg)
+	numPrior := 3
+	prChans := make([](chan Msg), numPrior)
+	for i := 0; i < numPrior; i++ {
+		prChans[i] = make(chan Msg, 20)
+		defer close(prChans[i])
+	}
+
+	defer close(in)
+	defer close(bufferIn)
+
+	// Feed the Buffer
+	go func() {
+		for !closed(bufferIn) {
+			select {
+				case bufferIn <- Msg{rand.Intn(numPrior)}:
+				case bufferIn <- Msg{rand.Intn(numPrior)}:
+			}
+		}
+	}()
+
+	// Fill Buffer with 10 Msgs
+	for i := 0; i < 10; i++ {
+		msg := <-bufferIn
+		prChans[msg.prior] <- msg
+	}
+
+	go func() {
+		for !closed(in) {
+			select {
+				case msg := <-prChans[0]:
+				default:
+				select {
+					case msg := <-prChans[1]:
+					default:
+					select {
+						case msg := <-prChans[2]:
+						default:
+					}
+				}
+			}
+		}
+	}()
+
+	go func() {
+		for !closed(in) {
+			msg := <-in
+			fmt.Printf("MsgPrior: %v\n", msg.prior)
+		}
+	}()
+
+	listenAddr, err := net.ResolveTCPAddr("localhost:52000")
+	if Errored(err, "Resolving TCP Addr") { return }
+
+	fmt.Println("Listening For Connections")
+	tcpServer, err := net.ListenTCP("tcp4",listenAddr)
+	if Errored(err, "Starting to Listen for Connections") { return }
+
+	fmt.Println("Waiting on Connection")
+	socket, err := tcpServer.AcceptTCP()
+	if Errored(err, "While Accepting TCP Connection") { return }
+	tcpServer.Close()
+
+	data := make([]byte, 4)
+	fmt.Println("Waiting For Kill Signal")
+	bytesRead, err := socket.Read(data)
+	fmt.Printf("BytesRead: %v", bytesRead)
+	if Errored(err, "While Waiting for the kill Signal") { return }
+	socket.Close()
 
 	fmt.Printf("\n\n");
 }
