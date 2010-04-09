@@ -49,8 +49,8 @@ type AtomicNode struct {
 	val Type
 }
 
-func (an *AtomicNode) Init(val Type, ShutDown chan int) (*AtomicNode) {
+func (an *AtomicNode) Init(val Type, bufferSz int, ShutDown chan int) (*AtomicNode) {
 	an.val = val
-	an.BaseNode.Init(ShutDown)
+	an.BufferNode.Init(bufferSz, ShutDown)
 	return an
 }
