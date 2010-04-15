@@ -45,7 +45,6 @@ type RemoveMonitor struct {
 
 type AtomicNode struct {
 	buffer.BufferNode
-	//node.BaseNode
 	val Type
 }
 
