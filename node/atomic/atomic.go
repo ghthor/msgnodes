@@ -12,26 +12,18 @@ type QueryVal struct {
 	query chan Type
 }
 
+type QueryAndSet struct {
+	QueryVal
+}
+
 type SetTo struct {
 	node.BaseMsg
 	newVal Type
 }
 
-type QueryAndSet struct {
-	QueryVal
-}
-
-// Only Needed For uint's!
-type OffsetDir byte
-const (
-	Pos OffsetDir = iota;
-	Neg
-)
-
 type OffsetBy struct {
 	node.BaseMsg
-	Offset Type
-	Dir OffsetDir
+	Offset int
 }
 
 type Monitor struct {
