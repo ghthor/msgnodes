@@ -6,10 +6,11 @@ import (
 )
 
 type Msg node.Msg
+type BaseMsg node.BaseMsg
 
 type QueryVal struct {
-	node.BaseMsg
-	query chan Type
+	BaseMsg
+	Query chan Type
 }
 
 type QueryAndSet struct {
@@ -17,18 +18,18 @@ type QueryAndSet struct {
 }
 
 type SetTo struct {
-	node.BaseMsg
-	newVal Type
+	BaseMsg
+	NewVal Type
 }
 
 type OffsetBy struct {
-	node.BaseMsg
+	BaseMsg
 	Offset int
 }
 
 type Monitor struct {
-	node.BaseMsg
-	comm chan Msg
+	BaseMsg
+	Comm chan Msg
 }
 
 type RemoveMonitor struct {

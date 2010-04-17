@@ -1,6 +1,6 @@
 include $(GOROOT)/src/Make.$(GOARCH)
 
-TARG=ghthor/node/atomic_int64
+TARG=ghthor/node/atomic_uint64
 GOFILES=\
 	../atomic.go\
 	type.go\
