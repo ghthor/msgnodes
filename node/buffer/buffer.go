@@ -42,9 +42,9 @@ func(bn *BufferNode) IsRunning() bool {
 
 func(bn *BufferNode) Listen() {
 	bn.Lock()
+	defer bn.Unlock()
 	if !bn.Running {
 		bn.Running = true
-		bn.Unlock()
 		go func() {
 			MsgChan := make(chan Msg)
 			defer close(MsgChan)
