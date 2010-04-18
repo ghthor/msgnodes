@@ -41,6 +41,7 @@ func(bn *BufferNode) Listen() {
 		bn.Unlock()
 		go func() {
 			MsgChan := make(chan Msg)
+			defer close(MsgChan)
 			for !closed(bn.In) || !closed(bn.ShutDownCh) {
 				select {
 					case sdVal := <-bn.ShutDownCh:
