@@ -11,7 +11,7 @@ import (
 type MsgPriority uint64
 
 type Msg interface {
-	Priority()(uint64) 
+	Priority()(uint64)
 	SetRecvId(uint64)
 	SetProcId(uint64)
 	RecvId() (uint64)

@@ -7,6 +7,7 @@ import (
 
 type Msg node.Msg
 type BaseMsg node.BaseMsg
+type BaseNode node.BaseNode
 
 type QueryVal struct {
 	BaseMsg
@@ -37,6 +38,7 @@ type RemoveMonitor struct {
 }
 
 type AtomicNode struct {
+	BaseNode
 	buffer.BufferNode
 	val Type
 }
@@ -45,4 +47,28 @@ func (an *AtomicNode) Init(val Type, bufferSz int, ShutDown chan int) (*AtomicNo
 	an.val = val
 	an.BufferNode.Init(bufferSz, ShutDown)
 	return an
+}
+
+func (an *AtomicNode) processMsg(msg Msg) {
+}
+
+func (an *AtomicNode) Listen() {
+	an.BufferNode.Listen()
+	an.Lock()
+	defer an.Unlock()
+	if !an.Running {
+		an.Running = true
+		go func() {
+			for !closed(an.In) || !closed(an.ShutDownCh) {
+				select {
+					case sdVal := <-an.ShutDownCh:
+						an.ShutDown(sdVal)
+						return
+					case MsgChan := <-an.MsgReq:
+						msg := <-MsgChan
+						an.processMsg(msg)
+				}
+			}
+		}()
+	}
 }
