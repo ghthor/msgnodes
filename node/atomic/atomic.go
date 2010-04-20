@@ -1,4 +1,4 @@
-package atomic_int64
+package atomic_uint64
 
 import (
 	"ghthor/node"
@@ -47,9 +47,6 @@ func (an *AtomicNode) Init(val Type, bufferSz int, ShutDown chan int) (*AtomicNo
 	an.val = val
 	an.BufferNode.Init(bufferSz, ShutDown)
 	return an
-}
-
-func (an *AtomicNode) processMsg(msg Msg) {
 }
 
 func (an *AtomicNode) Listen() {
