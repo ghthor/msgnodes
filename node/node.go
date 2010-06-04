@@ -78,11 +78,11 @@ func (n *BaseNode) ShutDown(sdVal int) {
 	n.Unlock()
 	sdVal++
 	n.ShutDownCh <- sdVal
-	n.JoinCh <- 1
+	n.joinCh <- 1
 }
 
 func (n *BaseNode) JoinCh() (chan int) {
-	return n.JoinCh
+	return n.joinCh
 }
 
 func (n *BaseNode) Join() {
