@@ -89,6 +89,10 @@ func (n *BaseNode) Join() {
 	<-n.JoinCh()
 }
 
+func (n *BaseNode) Exit() {
+	n.JoinCh() <- 1
+}
+
 func (n *BaseNode) IsRunning() (bool) {
 	n.Lock()
 	b := n.Running
