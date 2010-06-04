@@ -32,21 +32,22 @@ type Node interface {
 	PassMsg() (chan Msg)
 	Stop()
 	Listen()
-	Join() (chan int)
+	JoinCh() (chan int)
+	Join()
 	IsRunning() (bool)
 }
 
 type BaseNode struct {
 	Running bool
 	ShutDownCh chan int
-	JoinCh chan int
+	joinCh chan int
 	sync.Mutex
 }
 
 // Sets the ShutDownCh channel if it is going to linked with other Node's Shutdown channels
 func (n *BaseNode) Init(ShutDownCh chan int) (*BaseNode) {
 	n.Running = false
-	n.JoinCh = make(chan int)
+	n.joinCh = make(chan int)
 	if ShutDownCh == nil {
 		n.ShutDownCh = make(chan int, 1)
 	} else {
@@ -80,8 +81,12 @@ func (n *BaseNode) ShutDown(sdVal int) {
 	n.JoinCh <- 1
 }
 
-func (n *BaseNode) Join() (chan int) {
+func (n *BaseNode) JoinCh() (chan int) {
 	return n.JoinCh
+}
+
+func (n *BaseNode) Join() {
+	<-n.JoinCh()
 }
 
 func (n *BaseNode) IsRunning() (bool) {
