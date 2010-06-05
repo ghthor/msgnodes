@@ -34,6 +34,7 @@ type Node interface {
 	Listen()
 	JoinCh() (chan int)
 	Join()
+	Exit()
 	IsRunning() (bool)
 }
 
@@ -58,6 +59,7 @@ func (n *BaseNode) Init(ShutDownCh chan int) (*BaseNode) {
 
 func (n *BaseNode) Dispose() {
 	close(n.ShutDownCh)
+	close(n.joinCh)
 }
 
 func (n *BaseNode) Stop() {
@@ -74,8 +76,13 @@ func (n *BaseNode) Stop() {
 
 func (n *BaseNode) ShutDown(sdVal int) {
 	n.Lock()
-	n.Running = false
-	n.Unlock()
+	if n.Running {
+		n.Running = false
+		n.Unlock()
+	}else{
+		n.Unlock()
+		return
+	}
 	sdVal++
 	n.ShutDownCh <- sdVal
 	n.joinCh <- 1
